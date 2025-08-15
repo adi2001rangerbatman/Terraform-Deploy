@@ -1,0 +1,109 @@
+trigger: none
+ 
+pool:
+  vmImage: ubuntu-latest
+ 
+variables:
+  backendResourceGroup: 'JKIT-IaC'
+  storageAccount: 'jkitiac'
+  containerName: 'jkitiactfstate'
+ 
+parameters:
+  - name: service_connection
+    displayName: "Azure Service Connection"
+    type: string
+    default: "JKIT-DevOps-Service-Principle"
+    values:
+      - JKIT-DevOps-Service-Principle
+      - DSS Management
+      - DSS Production Connectivity
+      - DSS IFS Disaster Recovery Apps
+ 
+  - name: resource_group_name
+    displayName: "Resource Group Name"
+    type: string
+    default: "example-rg002"
+ 
+  - name: location
+    displayName: "Azure Region"
+    type: string
+    default: "Southeast Asia"
+ 
+  - name: prefix
+    displayName: "Prefix"
+    type: string
+    default: "avd"
+ 
+  - name: workspace
+    displayName: "Workspace Name"
+    type: string
+    default: "avd-workspace"
+ 
+  - name: hostpool
+    displayName: "Host Pool Name"
+    type: string
+    default: "avd-hostpool"
+ 
+  - name: dag
+    displayName: "Desktop App Group Name"
+    type: string
+    default: "avd-dag"
+ 
+  - name: rfc3339
+    displayName: "Token Expiration (RFC3339)"
+    type: string
+    default: "2025-08-31T23:59:59Z"
+ 
+  - name: state_suffix
+    displayName: "State File Suffix"
+    type: string
+    default: "rg01"
+ 
+steps:
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+  displayName: 'Install Terraform'
+  inputs:
+    terraformVersion: '1.5.7'
+ 
+- task: TerraformTaskV4@4
+  displayName: 'Terraform Init'
+  inputs:
+    provider: 'azurerm'
+    command: 'init'
+    backendAzureRmUseEntraIdForAuthentication: true
+    backendServiceArm: ${{ parameters.service_connection }}
+    backendAzureRmResourceGroupName: $(backendResourceGroup)
+    backendAzureRmStorageAccountName: $(storageAccount)
+    backendAzureRmContainerName: $(containerName)
+    backendAzureRmKey: 'resource-group-${{ parameters.state_suffix }}.tfstate'
+ 
+- task: TerraformTaskV4@4
+  displayName: 'Terraform Plan'
+  inputs:
+    provider: 'azurerm'
+    command: 'plan'
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+    commandOptions: >
+      -var="rgname=${{ parameters.resource_group_name }}"
+      -var="location=${{ parameters.location }}"
+      -var="prefix=${{ parameters.prefix }}"
+      -var="workspace=${{ parameters.workspace }}"
+      -var="hostpool=${{ parameters.hostpool }}"
+      -var="dag=${{ parameters.dag }}"
+      -var="rfc3339=${{ parameters.rfc3339 }}"
+ 
+- task: TerraformTaskV4@4
+  displayName: 'Terraform Apply'
+  inputs:
+    provider: 'azurerm'
+    command: 'apply'
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+    commandOptions: >
+      -var="rgname=${{ parameters.resource_group_name }}"
+      -var="location=${{ parameters.location }}"
+      -var="prefix=${{ parameters.prefix }}"
+      -var="workspace=${{ parameters.workspace }}"
+      -var="hostpool=${{ parameters.hostpool }}"
+      -var="dag=${{ parameters.dag }}"
+      -var="rfc3339=${{ parameters.rfc3339 }}"
+      -auto-approve
